@@ -6,56 +6,78 @@
 
 Rust-based Kubernetes tools for debugging and monitoring.
 
-## Tools
+## Quick Start
 
-### kdbg - Kubernetes Pod Debugger
-Fast kubectl wrapper with fuzzy matching and better UX.
-
-**12 Commands:**
-- `list` - List all pods
-- `logs` - Get pod logs
-- `exec` - Execute commands
-- `describe` - Describe pods
-- `top` - Resource usage
-- `forward` - Port forwarding
-- `shell` - Interactive shell
-- `debug` - Create debug pods
-- `restart` - Restart pods
-- `events` - Show pod events
-- `watch` - Live pod monitoring
-- `ctx` - Switch contexts
-- `plugin` - Run custom plugins
-
-**Plugin System:**
-Extend kdbg with custom commands! Drop shell scripts in `~/.kdbg/plugins/` and run them with `kdbg plugin <name>`.
-
-See [PLUGINS.md](kdbg/PLUGINS.md) for details.
-
-**Example:**
 ```bash
-kdbg list
-kdbg shell nginx    # Fuzzy match - finds nginx-deployment-7d4f8c9b5-xk2lp
-kdbg logs my-app -f
-kdbg debug --image ubuntu
-kdbg watch          # Live-updating pod list
-kdbg ctx            # List/switch contexts
+git clone https://github.com/JackFurton/k8s-tools.git
+cd k8s-tools
+./install.sh
 ```
 
-### kdash - Kubernetes Dashboard
+## Tools
+
+### 🔧 kdbg - Kubernetes Pod Debugger
+Fast kubectl wrapper with fuzzy matching and plugin system.
+
+**13 Commands:**
+- `list` - List all pods (with verbose mode)
+- `logs` - Get pod logs (with follow and tail)
+- `exec` - Execute commands in pods
+- `shell` - Interactive shell (auto-detects bash/sh)
+- `describe` - Describe pod details
+- `top` - Show resource usage
+- `forward` - Port forwarding
+- `debug` - Create temporary debug pods
+- `restart` - Restart pods (delete and recreate)
+- `events` - Show pod events
+- `watch` - Live-updating pod list
+- `ctx` - Switch kubectl contexts
+- `plugin` - Run custom plugins 🔌
+
+**Examples:**
+```bash
+kdbg list                    # List all pods
+kdbg shell nginx             # Fuzzy match - finds nginx-deployment-xxx
+kdbg logs my-app -f          # Follow logs
+kdbg debug --image ubuntu    # Create debug pod
+kdbg watch                   # Live pod monitoring
+kdbg ctx production          # Switch context
+kdbg plugin pod-stats        # Run custom plugin
+```
+
+**Plugin System:**
+Extend kdbg with custom commands! Drop shell scripts in `~/.kdbg/plugins/`:
+
+```bash
+# Create a plugin
+cat > ~/.kdbg/plugins/backup.sh << 'EOF'
+#!/bin/bash
+kubectl get all -o yaml > backup-$(date +%Y%m%d).yaml
+echo "Backup saved!"
+EOF
+
+chmod +x ~/.kdbg/plugins/backup.sh
+
+# Run it
+kdbg plugin backup
+```
+
+See [PLUGINS.md](kdbg/PLUGINS.md) for full plugin documentation.
+
+### 📊 kdash - Kubernetes Dashboard
 Real-time TUI dashboard for cluster monitoring.
 
 **Features:**
-- Live pod status
-- Auto-refresh every 5s
-- Color-coded states
-- Interactive pod selection
-- Real-time log streaming
-- Resource metrics (CPU/memory)
+- Live pod status with color-coding
+- Interactive pod selection (↑↓ arrow keys)
+- Real-time log streaming (press `l`)
+- Resource metrics - CPU/memory (press `m`)
+- Auto-refresh every 5 seconds
 - Minimal resource usage
 
 **Controls:**
 - `q` - Quit
-- `r` - Refresh
+- `r` - Manual refresh
 - `l` - Toggle logs panel
 - `m` - Toggle metrics
 - `↑↓` - Select pod
@@ -76,21 +98,14 @@ cd k8s-tools
 
 ### From source:
 ```bash
-git clone https://github.com/JackFurton/k8s-tools.git
-cd k8s-tools
 cargo build --release
-
-# Install both tools
 sudo cp target/release/kdbg /usr/local/bin/
 sudo cp target/release/kdash /usr/local/bin/
 ```
 
 ### Individual tools:
 ```bash
-# Just kdbg
 cargo build --release -p kdbg
-
-# Just kdash
 cargo build --release -p kdash
 ```
 
@@ -102,32 +117,19 @@ cargo build --release -p kdash
 
 ## Why these tools?
 
-**kdbg** makes kubectl faster:
-- No more typing full pod names
+**kdbg makes kubectl faster:**
+- No more typing full pod names (fuzzy matching)
 - Shorter commands
 - Better output formatting
+- Extensible with plugins
 - Quick debugging workflows
 
-**kdash** gives you instant cluster visibility:
+**kdash gives instant cluster visibility:**
 - See all pods at a glance
 - Monitor restarts and failures
 - Stream logs in real-time
-- Interactive pod selection
+- Track resource usage
 - Lightweight alternative to k9s
-
-## Workspace Structure
-
-```
-k8s-tools/
-├── Cargo.toml       # Workspace config
-├── kdbg/            # Pod debugger
-│   ├── src/
-│   └── README.md
-├── kdash/           # TUI dashboard
-│   ├── src/
-│   └── README.md
-└── README.md        # This file
-```
 
 ## Development
 
@@ -135,14 +137,17 @@ k8s-tools/
 # Build all tools
 cargo build --release
 
-# Build specific tool
-cargo build --release -p kdbg
-
-# Run tests
-cargo test
+# Run CI checks locally
+./ci-check.sh
 
 # Format code
 cargo fmt
+
+# Run clippy
+cargo clippy
+
+# Run tests
+cargo test
 ```
 
 ## Related Projects
