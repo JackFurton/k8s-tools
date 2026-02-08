@@ -1,5 +1,9 @@
 # k8s-tools
 
+[![CI](https://github.com/JackFurton/k8s-tools/workflows/CI/badge.svg)](https://github.com/JackFurton/k8s-tools/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
+
 Rust-based Kubernetes tools for debugging and monitoring.
 
 ## Tools
@@ -42,6 +46,13 @@ kdash    # Opens TUI dashboard
 ```
 
 ## Installation
+
+### Quick install (recommended):
+```bash
+git clone https://github.com/JackFurton/k8s-tools.git
+cd k8s-tools
+./install.sh
+```
 
 ### From source:
 ```bash
