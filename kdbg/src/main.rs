@@ -2,7 +2,10 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::*;
 use serde_json::Value;
+use std::io::{self, Write};
 use std::process::{Command, Stdio};
+use std::thread;
+use std::time::Duration;
 
 #[derive(Parser)]
 #[command(name = "kdbg")]
@@ -130,6 +133,23 @@ enum Commands {
         #[arg(short, long)]
         namespace: Option<String>,
     },
+
+    /// Watch pods in real-time
+    Watch {
+        /// Namespace (default: all)
+        #[arg(short, long)]
+        namespace: Option<String>,
+
+        /// Refresh interval in seconds
+        #[arg(short, long, default_value = "2")]
+        interval: u64,
+    },
+
+    /// Switch kubectl context
+    Ctx {
+        /// Context name (omit to list contexts)
+        context: Option<String>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -160,6 +180,8 @@ fn main() -> Result<()> {
         Commands::Debug { image, namespace } => debug_pod(&image, &namespace)?,
         Commands::Restart { pod, namespace } => restart_pod(&pod, namespace)?,
         Commands::Events { pod, namespace } => show_events(&pod, namespace)?,
+        Commands::Watch { namespace, interval } => watch_pods(namespace, interval)?,
+        Commands::Ctx { context } => switch_context(context)?,
     }
 
     Ok(())
@@ -594,6 +616,178 @@ fn show_events(pod_pattern: &str, namespace: Option<String>) -> Result<()> {
 
     if !status.success() {
         anyhow::bail!("Failed to get events");
+    }
+
+    Ok(())
+}
+
+fn watch_pods(namespace: Option<String>, interval: u64) -> Result<()> {
+    println!(
+        "{} Watching pods (refresh every {}s, press Ctrl+C to stop)...",
+        "[INFO]".cyan(),
+        interval
+    );
+    println!();
+
+    loop {
+        // Clear screen
+        print!("\x1B[2J\x1B[1;1H");
+        io::stdout().flush()?;
+
+        // Print header
+        println!("{}", "=".repeat(100).bright_black());
+        println!(
+            "{} {} {}",
+            "kdbg watch".cyan().bold(),
+            "-".bright_black(),
+            chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string().bright_black()
+        );
+        println!("{}", "=".repeat(100).bright_black());
+        println!();
+
+        // Get pods
+        let mut args = vec!["get", "pods"];
+
+        let ns_str;
+        if let Some(ns) = &namespace {
+            ns_str = ns.clone();
+            args.extend(&["-n", &ns_str]);
+        } else {
+            args.push("--all-namespaces");
+        }
+
+        args.extend(&["-o", "json"]);
+
+        let output = Command::new("kubectl").args(&args).output()?;
+
+        if output.status.success() {
+            let json: Value = serde_json::from_slice(&output.stdout)?;
+            let empty_vec = vec![];
+            let pods = json["items"].as_array().unwrap_or(&empty_vec);
+
+            // Count by status
+            let mut running = 0;
+            let mut pending = 0;
+            let mut failed = 0;
+            let mut other = 0;
+
+            for pod in pods {
+                match pod["status"]["phase"].as_str().unwrap_or("Unknown") {
+                    "Running" => running += 1,
+                    "Pending" => pending += 1,
+                    "Failed" => failed += 1,
+                    _ => other += 1,
+                }
+            }
+
+            // Print summary
+            println!(
+                "Total: {} | {}: {} | {}: {} | {}: {} | {}: {}",
+                pods.len().to_string().bold(),
+                "Running".green(),
+                running,
+                "Pending".yellow(),
+                pending,
+                "Failed".red(),
+                failed,
+                "Other".bright_black(),
+                other
+            );
+            println!();
+
+            // Print table header
+            println!(
+                "{:<50} {:<20} {:<15} {:<10} {}",
+                "NAME".bold(),
+                "NAMESPACE".bold(),
+                "STATUS".bold(),
+                "RESTARTS".bold(),
+                "AGE".bold()
+            );
+            println!("{}", "-".repeat(100).bright_black());
+
+            // Print pods
+            for pod in pods {
+                let name = pod["metadata"]["name"].as_str().unwrap_or("unknown");
+                let ns = pod["metadata"]["namespace"].as_str().unwrap_or("default");
+                let status = pod["status"]["phase"].as_str().unwrap_or("Unknown");
+                let restarts = pod["status"]["containerStatuses"]
+                    .as_array()
+                    .and_then(|arr| arr.first())
+                    .and_then(|c| c["restartCount"].as_u64())
+                    .unwrap_or(0);
+                let created = pod["metadata"]["creationTimestamp"]
+                    .as_str()
+                    .unwrap_or("");
+                let age = calculate_age(created);
+
+                let status_colored = match status {
+                    "Running" => status.green(),
+                    "Pending" => status.yellow(),
+                    "Failed" => status.red(),
+                    _ => status.bright_black(),
+                };
+
+                println!(
+                    "{:<50} {:<20} {:<15} {:<10} {}",
+                    name, ns, status_colored, restarts, age
+                );
+            }
+        } else {
+            println!("{} Failed to get pods", "[ERROR]".red());
+        }
+
+        // Wait before next refresh
+        thread::sleep(Duration::from_secs(interval));
+    }
+}
+
+fn switch_context(context: Option<String>) -> Result<()> {
+    if let Some(ctx) = context {
+        // Switch to specified context
+        println!("{} Switching to context: {}", "[INFO]".cyan(), ctx.bold());
+
+        let status = Command::new("kubectl")
+            .args(["config", "use-context", &ctx])
+            .status()?;
+
+        if !status.success() {
+            anyhow::bail!("Failed to switch context");
+        }
+
+        println!("{} Context switched successfully", "[SUCCESS]".green());
+    } else {
+        // List contexts
+        println!("{} Available contexts:", "[INFO]".cyan());
+        println!("{}", "-".repeat(100));
+
+        let output = Command::new("kubectl")
+            .args(["config", "get-contexts", "-o", "name"])
+            .output()?;
+
+        if !output.status.success() {
+            anyhow::bail!("Failed to get contexts");
+        }
+
+        let contexts = String::from_utf8_lossy(&output.stdout);
+
+        // Get current context
+        let current_output = Command::new("kubectl")
+            .args(["config", "current-context"])
+            .output()?;
+
+        let current = String::from_utf8_lossy(&current_output.stdout).trim().to_string();
+
+        for ctx in contexts.lines() {
+            if ctx == current {
+                println!("  {} {}", "●".green(), ctx.green().bold());
+            } else {
+                println!("  ○ {}", ctx);
+            }
+        }
+
+        println!();
+        println!("{} Use 'kdbg ctx <name>' to switch", "[TIP]".yellow());
     }
 
     Ok(())

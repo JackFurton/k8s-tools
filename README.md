@@ -11,7 +11,7 @@ Rust-based Kubernetes tools for debugging and monitoring.
 ### kdbg - Kubernetes Pod Debugger
 Fast kubectl wrapper with fuzzy matching and better UX.
 
-**10 Commands:**
+**12 Commands:**
 - `list` - List all pods
 - `logs` - Get pod logs
 - `exec` - Execute commands
@@ -22,6 +22,8 @@ Fast kubectl wrapper with fuzzy matching and better UX.
 - `debug` - Create debug pods
 - `restart` - Restart pods
 - `events` - Show pod events
+- `watch` - Live pod monitoring
+- `ctx` - Switch contexts
 
 **Example:**
 ```bash
@@ -29,6 +31,8 @@ kdbg list
 kdbg shell nginx    # Fuzzy match - finds nginx-deployment-7d4f8c9b5-xk2lp
 kdbg logs my-app -f
 kdbg debug --image ubuntu
+kdbg watch          # Live-updating pod list
+kdbg ctx            # List/switch contexts
 ```
 
 ### kdash - Kubernetes Dashboard
