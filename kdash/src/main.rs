@@ -77,13 +77,7 @@ impl App {
     fn fetch_logs(&mut self) -> Result<()> {
         if let Some(pod) = self.pods.get(self.selected_index) {
             let output = Command::new("kubectl")
-                .args([
-                    "logs",
-                    &pod.name,
-                    "-n",
-                    &pod.namespace,
-                    "--tail=50",
-                ])
+                .args(["logs", &pod.name, "-n", &pod.namespace, "--tail=50"])
                 .output()?;
 
             if output.status.success() {
@@ -255,11 +249,8 @@ fn main() -> Result<()> {
                 f.render_widget(pods_list, middle_chunks[0]);
 
                 // Logs panel
-                let log_lines: Vec<Line> = app
-                    .logs
-                    .iter()
-                    .map(|l| Line::from(l.as_str()))
-                    .collect();
+                let log_lines: Vec<Line> =
+                    app.logs.iter().map(|l| Line::from(l.as_str())).collect();
 
                 let selected_pod = app
                     .pods

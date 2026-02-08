@@ -180,7 +180,10 @@ fn main() -> Result<()> {
         Commands::Debug { image, namespace } => debug_pod(&image, &namespace)?,
         Commands::Restart { pod, namespace } => restart_pod(&pod, namespace)?,
         Commands::Events { pod, namespace } => show_events(&pod, namespace)?,
-        Commands::Watch { namespace, interval } => watch_pods(namespace, interval)?,
+        Commands::Watch {
+            namespace,
+            interval,
+        } => watch_pods(namespace, interval)?,
         Commands::Ctx { context } => switch_context(context)?,
     }
 
@@ -640,7 +643,10 @@ fn watch_pods(namespace: Option<String>, interval: u64) -> Result<()> {
             "{} {} {}",
             "kdbg watch".cyan().bold(),
             "-".bright_black(),
-            chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string().bright_black()
+            chrono::Local::now()
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
+                .bright_black()
         );
         println!("{}", "=".repeat(100).bright_black());
         println!();
@@ -716,9 +722,7 @@ fn watch_pods(namespace: Option<String>, interval: u64) -> Result<()> {
                     .and_then(|arr| arr.first())
                     .and_then(|c| c["restartCount"].as_u64())
                     .unwrap_or(0);
-                let created = pod["metadata"]["creationTimestamp"]
-                    .as_str()
-                    .unwrap_or("");
+                let created = pod["metadata"]["creationTimestamp"].as_str().unwrap_or("");
                 let age = calculate_age(created);
 
                 let status_colored = match status {
@@ -776,7 +780,9 @@ fn switch_context(context: Option<String>) -> Result<()> {
             .args(["config", "current-context"])
             .output()?;
 
-        let current = String::from_utf8_lossy(&current_output.stdout).trim().to_string();
+        let current = String::from_utf8_lossy(&current_output.stdout)
+            .trim()
+            .to_string();
 
         for ctx in contexts.lines() {
             if ctx == current {
