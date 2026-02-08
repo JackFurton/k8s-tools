@@ -316,16 +316,16 @@ fn main() -> Result<()> {
         })?;
 
         // Handle input
-        if event::poll(Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char('q') => break,
-                    KeyCode::Char('r') => app.update()?,
-                    KeyCode::Char('l') => app.toggle_logs()?,
-                    KeyCode::Up => app.select_prev(),
-                    KeyCode::Down => app.select_next(),
-                    _ => {}
-                }
+        if event::poll(Duration::from_millis(100))?
+            && let Event::Key(key) = event::read()?
+        {
+            match key.code {
+                KeyCode::Char('q') => break,
+                KeyCode::Char('r') => app.update()?,
+                KeyCode::Char('l') => app.toggle_logs()?,
+                KeyCode::Up => app.select_prev(),
+                KeyCode::Down => app.select_next(),
+                _ => {}
             }
         }
 
