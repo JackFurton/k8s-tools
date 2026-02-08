@@ -150,6 +150,16 @@ enum Commands {
         /// Context name (omit to list contexts)
         context: Option<String>,
     },
+
+    /// Run a plugin command
+    Plugin {
+        /// Plugin name
+        name: String,
+
+        /// Arguments to pass to plugin
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -185,6 +195,7 @@ fn main() -> Result<()> {
             interval,
         } => watch_pods(namespace, interval)?,
         Commands::Ctx { context } => switch_context(context)?,
+        Commands::Plugin { name, args } => run_plugin(&name, &args)?,
     }
 
     Ok(())
@@ -822,4 +833,69 @@ fn calculate_age(timestamp: &str) -> String {
     } else {
         format!("{}d", diff / 86400)
     }
+}
+
+fn run_plugin(name: &str, args: &[String]) -> Result<()> {
+    use std::env;
+    use std::fs;
+    use std::path::PathBuf;
+
+    // Get plugin directory
+    let home = env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let plugin_dir = PathBuf::from(home).join(".kdbg").join("plugins");
+
+    // Look for plugin script
+    let plugin_path = plugin_dir.join(format!("{}.sh", name));
+
+    if !plugin_path.exists() {
+        println!("{} Plugin '{}' not found", "[ERROR]".red(), name);
+        println!();
+        println!("Available plugins:");
+
+        if plugin_dir.exists() {
+            if let Ok(entries) = fs::read_dir(&plugin_dir) {
+                let mut found_any = false;
+                for entry in entries.flatten() {
+                    if let Some(filename) = entry.file_name().to_str() {
+                        if filename.ends_with(".sh") {
+                            let plugin_name = filename.trim_end_matches(".sh");
+                            println!("  - {}", plugin_name.cyan());
+                            found_any = true;
+                        }
+                    }
+                }
+                if !found_any {
+                    println!("  (none)");
+                }
+            }
+        } else {
+            println!("  (none - create plugins in ~/.kdbg/plugins/)");
+        }
+
+        println!();
+        println!("{} Create a plugin:", "[TIP]".yellow());
+        println!("  echo '#!/bin/bash' > ~/.kdbg/plugins/{}.sh", name);
+        println!(
+            "  echo 'echo \"Hello from {}!\"' >> ~/.kdbg/plugins/{}.sh",
+            name, name
+        );
+        println!("  chmod +x ~/.kdbg/plugins/{}.sh", name);
+
+        anyhow::bail!("Plugin not found");
+    }
+
+    // Run the plugin
+    println!("{} Running plugin: {}", "[INFO]".cyan(), name.bold());
+    println!("{}", "-".repeat(100));
+
+    let status = Command::new(&plugin_path)
+        .args(args)
+        .env("KDBG_PLUGIN", "1")
+        .status()?;
+
+    if !status.success() {
+        anyhow::bail!("Plugin exited with error");
+    }
+
+    Ok(())
 }

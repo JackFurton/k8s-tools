@@ -24,6 +24,12 @@ Fast kubectl wrapper with fuzzy matching and better UX.
 - `events` - Show pod events
 - `watch` - Live pod monitoring
 - `ctx` - Switch contexts
+- `plugin` - Run custom plugins
+
+**Plugin System:**
+Extend kdbg with custom commands! Drop shell scripts in `~/.kdbg/plugins/` and run them with `kdbg plugin <name>`.
+
+See [PLUGINS.md](kdbg/PLUGINS.md) for details.
 
 **Example:**
 ```bash
