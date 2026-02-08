@@ -7,6 +7,8 @@ Real-time TUI dashboard for Kubernetes clusters.
 - Live pod status monitoring
 - Auto-refresh every 5 seconds
 - Color-coded pod states (Running/Pending/Failed)
+- Interactive pod selection (↑↓ arrow keys)
+- Real-time log streaming (press `l`)
 - Shows namespace, restarts, and age
 - Minimal resource usage
 
@@ -26,18 +28,23 @@ kdash
 **Controls:**
 - `q` - Quit
 - `r` - Manual refresh
+- `l` - Toggle logs panel
+- `↑` - Select previous pod
+- `↓` - Select next pod
 
 ## Screenshot
 
 ```
 ┌─ kdash - Kubernetes Dashboard ─────────────────────────┐
 │                                                         │
-├─ Pods (14) ────────────────────────────────────────────┤
-│ coredns-7f496c8d7d-7cbfs    kube-system   Running  ... │
-│ metrics-server-7b9c9c4b9c   kube-system   Running  ... │
-│ test-shell                  default       Running  ... │
+├─ Pods (14) - ↑↓ to select ─────────────────────────────┤
+│ > coredns-7f496c8d7d-7cbfs  kube-system   Running  ... │
+│   metrics-server-7b9c9c4b9  kube-system   Running  ... │
+├─ Logs: kube-system/coredns-7f496c8d7d-7cbfs ───────────┤
+│ [INFO] CoreDNS-1.13.1                                  │
+│ [INFO] linux/arm64, go1.25.2                           │
 ├─────────────────────────────────────────────────────────┤
-│ Press 'q' to quit | 'r' to refresh | Last update: 2s   │
+│ q:quit | r:refresh | l:logs | ↑↓:select | Update: 2s  │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -52,6 +59,7 @@ Lightweight alternative to k9s for quick cluster monitoring. Perfect for:
 - Quick cluster health checks
 - Monitoring pod restarts
 - Watching deployments roll out
+- Streaming logs from multiple pods
 - Terminal-only environments
 
 ## Companion Tools

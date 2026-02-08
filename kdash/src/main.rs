@@ -20,6 +20,9 @@ use std::time::{Duration, Instant};
 struct App {
     pods: Vec<PodInfo>,
     last_update: Instant,
+    selected_index: usize,
+    logs: Vec<String>,
+    show_logs: bool,
 }
 
 struct PodInfo {
@@ -35,12 +38,63 @@ impl App {
         Self {
             pods: Vec::new(),
             last_update: Instant::now(),
+            selected_index: 0,
+            logs: Vec::new(),
+            show_logs: false,
         }
     }
 
     fn update(&mut self) -> Result<()> {
         self.pods = get_pods()?;
         self.last_update = Instant::now();
+        Ok(())
+    }
+
+    fn select_next(&mut self) {
+        if !self.pods.is_empty() {
+            self.selected_index = (self.selected_index + 1) % self.pods.len();
+        }
+    }
+
+    fn select_prev(&mut self) {
+        if !self.pods.is_empty() {
+            if self.selected_index > 0 {
+                self.selected_index -= 1;
+            } else {
+                self.selected_index = self.pods.len() - 1;
+            }
+        }
+    }
+
+    fn toggle_logs(&mut self) -> Result<()> {
+        self.show_logs = !self.show_logs;
+        if self.show_logs && !self.pods.is_empty() {
+            self.fetch_logs()?;
+        }
+        Ok(())
+    }
+
+    fn fetch_logs(&mut self) -> Result<()> {
+        if let Some(pod) = self.pods.get(self.selected_index) {
+            let output = Command::new("kubectl")
+                .args([
+                    "logs",
+                    &pod.name,
+                    "-n",
+                    &pod.namespace,
+                    "--tail=50",
+                ])
+                .output()?;
+
+            if output.status.success() {
+                self.logs = String::from_utf8_lossy(&output.stdout)
+                    .lines()
+                    .map(|s| s.to_string())
+                    .collect();
+            } else {
+                self.logs = vec!["Failed to fetch logs".to_string()];
+            }
+        }
         Ok(())
     }
 }
@@ -132,7 +186,7 @@ fn main() -> Result<()> {
 
     loop {
         terminal.draw(|f| {
-            let chunks = Layout::default()
+            let main_chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
                     Constraint::Length(3),
@@ -152,58 +206,137 @@ fn main() -> Result<()> {
                 Span::raw(" - Kubernetes Dashboard"),
             ])])
             .block(Block::default().borders(Borders::ALL));
-            f.render_widget(header, chunks[0]);
+            f.render_widget(header, main_chunks[0]);
 
-            // Pod list
-            let items: Vec<ListItem> = app
-                .pods
-                .iter()
-                .map(|pod| {
-                    let status_color = match pod.status.as_str() {
-                        "Running" => Color::Green,
-                        "Pending" => Color::Yellow,
-                        "Failed" => Color::Red,
-                        _ => Color::Gray,
-                    };
+            // Split middle section if logs are shown
+            if app.show_logs {
+                let middle_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .split(main_chunks[1]);
 
-                    let line = format!(
-                        "{:<40} {:<15} {:<10} R:{} Age:{}",
-                        pod.name, pod.namespace, pod.status, pod.restarts, pod.age
-                    );
+                // Pod list
+                let items: Vec<ListItem> = app
+                    .pods
+                    .iter()
+                    .enumerate()
+                    .map(|(i, pod)| {
+                        let status_color = match pod.status.as_str() {
+                            "Running" => Color::Green,
+                            "Pending" => Color::Yellow,
+                            "Failed" => Color::Red,
+                            _ => Color::Gray,
+                        };
 
-                    ListItem::new(Line::from(Span::styled(
-                        line,
-                        Style::default().fg(status_color),
-                    )))
-                })
-                .collect();
+                        let line = format!(
+                            "{} {:<38} {:<15} {:<10} R:{} Age:{}",
+                            if i == app.selected_index { ">" } else { " " },
+                            pod.name,
+                            pod.namespace,
+                            pod.status,
+                            pod.restarts,
+                            pod.age
+                        );
 
-            let pods_list = List::new(items).block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(format!("Pods ({})", app.pods.len())),
-            );
-            f.render_widget(pods_list, chunks[1]);
+                        let mut style = Style::default().fg(status_color);
+                        if i == app.selected_index {
+                            style = style.add_modifier(Modifier::BOLD);
+                        }
+
+                        ListItem::new(Line::from(Span::styled(line, style)))
+                    })
+                    .collect();
+
+                let pods_list = List::new(items).block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title(format!("Pods ({}) - ↑↓ to select", app.pods.len())),
+                );
+                f.render_widget(pods_list, middle_chunks[0]);
+
+                // Logs panel
+                let log_lines: Vec<Line> = app
+                    .logs
+                    .iter()
+                    .map(|l| Line::from(l.as_str()))
+                    .collect();
+
+                let selected_pod = app
+                    .pods
+                    .get(app.selected_index)
+                    .map(|p| format!("{}/{}", p.namespace, p.name))
+                    .unwrap_or_else(|| "None".to_string());
+
+                let logs_widget = Paragraph::new(log_lines).block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title(format!("Logs: {}", selected_pod)),
+                );
+                f.render_widget(logs_widget, middle_chunks[1]);
+            } else {
+                // Just pod list
+                let items: Vec<ListItem> = app
+                    .pods
+                    .iter()
+                    .enumerate()
+                    .map(|(i, pod)| {
+                        let status_color = match pod.status.as_str() {
+                            "Running" => Color::Green,
+                            "Pending" => Color::Yellow,
+                            "Failed" => Color::Red,
+                            _ => Color::Gray,
+                        };
+
+                        let line = format!(
+                            "{} {:<38} {:<15} {:<10} R:{} Age:{}",
+                            if i == app.selected_index { ">" } else { " " },
+                            pod.name,
+                            pod.namespace,
+                            pod.status,
+                            pod.restarts,
+                            pod.age
+                        );
+
+                        let mut style = Style::default().fg(status_color);
+                        if i == app.selected_index {
+                            style = style.add_modifier(Modifier::BOLD);
+                        }
+
+                        ListItem::new(Line::from(Span::styled(line, style)))
+                    })
+                    .collect();
+
+                let pods_list = List::new(items).block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title(format!("Pods ({}) - ↑↓ to select", app.pods.len())),
+                );
+                f.render_widget(pods_list, main_chunks[1]);
+            }
 
             // Footer
             let elapsed = app.last_update.elapsed().as_secs();
             let footer = Paragraph::new(format!(
-                "Press 'q' to quit | 'r' to refresh | Last update: {}s ago",
+                "q:quit | r:refresh | l:logs | ↑↓:select | Last update: {}s ago",
                 elapsed
             ))
             .block(Block::default().borders(Borders::ALL));
-            f.render_widget(footer, chunks[2]);
+            f.render_widget(footer, main_chunks[2]);
         })?;
 
         // Handle input
-        if event::poll(Duration::from_millis(100))?
-            && let Event::Key(key) = event::read()? {
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
                 match key.code {
                     KeyCode::Char('q') => break,
                     KeyCode::Char('r') => app.update()?,
+                    KeyCode::Char('l') => app.toggle_logs()?,
+                    KeyCode::Up => app.select_prev(),
+                    KeyCode::Down => app.select_next(),
                     _ => {}
                 }
             }
+        }
 
         // Auto-refresh every 5 seconds
         if app.last_update.elapsed() > Duration::from_secs(5) {

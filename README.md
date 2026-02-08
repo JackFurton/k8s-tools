@@ -42,7 +42,15 @@ Real-time TUI dashboard for cluster monitoring.
 - Live pod status
 - Auto-refresh every 5s
 - Color-coded states
+- Interactive pod selection
+- Real-time log streaming
 - Minimal resource usage
+
+**Controls:**
+- `q` - Quit
+- `r` - Refresh
+- `l` - Toggle logs panel
+- `↑↓` - Select pod
 
 **Example:**
 ```bash
@@ -95,6 +103,8 @@ cargo build --release -p kdash
 **kdash** gives you instant cluster visibility:
 - See all pods at a glance
 - Monitor restarts and failures
+- Stream logs in real-time
+- Interactive pod selection
 - Lightweight alternative to k9s
 
 ## Workspace Structure
