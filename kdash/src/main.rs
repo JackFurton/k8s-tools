@@ -10,9 +10,10 @@ use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Sparkline},
 };
 use serde_json::Value;
+use std::collections::VecDeque;
 use std::io;
 use std::process::Command;
 use std::time::{Duration, Instant};
@@ -23,6 +24,20 @@ struct App {
     selected_index: usize,
     logs: Vec<String>,
     show_logs: bool,
+    show_metrics: bool,
+    metrics_history: VecDeque<MetricsSnapshot>,
+}
+
+struct MetricsSnapshot {
+    timestamp: Instant,
+    pod_metrics: Vec<PodMetrics>,
+}
+
+struct PodMetrics {
+    name: String,
+    namespace: String,
+    cpu: u64,    // millicores
+    memory: u64, // bytes
 }
 
 struct PodInfo {
@@ -41,12 +56,44 @@ impl App {
             selected_index: 0,
             logs: Vec::new(),
             show_logs: false,
+            show_metrics: false,
+            metrics_history: VecDeque::with_capacity(60), // Keep 60 data points
         }
     }
 
     fn update(&mut self) -> Result<()> {
         self.pods = get_pods()?;
         self.last_update = Instant::now();
+
+        // Update metrics if showing
+        if self.show_metrics {
+            self.update_metrics()?;
+        }
+
+        Ok(())
+    }
+
+    fn update_metrics(&mut self) -> Result<()> {
+        let metrics = get_pod_metrics()?;
+
+        self.metrics_history.push_back(MetricsSnapshot {
+            timestamp: Instant::now(),
+            pod_metrics: metrics,
+        });
+
+        // Keep only last 60 snapshots (5 minutes at 5s intervals)
+        if self.metrics_history.len() > 60 {
+            self.metrics_history.pop_front();
+        }
+
+        Ok(())
+    }
+
+    fn toggle_metrics(&mut self) -> Result<()> {
+        self.show_metrics = !self.show_metrics;
+        if self.show_metrics {
+            self.update_metrics()?;
+        }
         Ok(())
     }
 
@@ -140,6 +187,60 @@ fn get_pods() -> Result<Vec<PodInfo>> {
     }
 
     Ok(pods)
+}
+
+fn get_pod_metrics() -> Result<Vec<PodMetrics>> {
+    let output = Command::new("kubectl")
+        .args(["top", "pods", "--all-namespaces", "--no-headers"])
+        .output()?;
+
+    if !output.status.success() {
+        return Ok(Vec::new());
+    }
+
+    let mut metrics = Vec::new();
+    let output_str = String::from_utf8_lossy(&output.stdout);
+
+    for line in output_str.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 4 {
+            let namespace = parts[0].to_string();
+            let name = parts[1].to_string();
+
+            // Parse CPU (e.g., "1m" -> 1 millicores)
+            let cpu = parts[2].trim_end_matches('m').parse::<u64>().unwrap_or(0);
+
+            // Parse memory (e.g., "128Mi" -> bytes)
+            let memory_str = parts[3];
+            let memory = if memory_str.ends_with("Mi") {
+                memory_str
+                    .trim_end_matches("Mi")
+                    .parse::<u64>()
+                    .unwrap_or(0)
+                    * 1024
+                    * 1024
+            } else if memory_str.ends_with("Gi") {
+                memory_str
+                    .trim_end_matches("Gi")
+                    .parse::<u64>()
+                    .unwrap_or(0)
+                    * 1024
+                    * 1024
+                    * 1024
+            } else {
+                0
+            };
+
+            metrics.push(PodMetrics {
+                name,
+                namespace,
+                cpu,
+                memory,
+            });
+        }
+    }
+
+    Ok(metrics)
 }
 
 fn calculate_age(timestamp: &str) -> String {
@@ -307,11 +408,20 @@ fn main() -> Result<()> {
 
             // Footer
             let elapsed = app.last_update.elapsed().as_secs();
-            let footer = Paragraph::new(format!(
-                "q:quit | r:refresh | l:logs | ↑↓:select | Last update: {}s ago",
+            let mut footer_text = format!(
+                "q:quit | r:refresh | l:logs | m:metrics | ↑↓:select | Last update: {}s ago",
                 elapsed
-            ))
-            .block(Block::default().borders(Borders::ALL));
+            );
+
+            if app.show_metrics && !app.metrics_history.is_empty() {
+                let latest = app.metrics_history.back().unwrap();
+                let total_cpu: u64 = latest.pod_metrics.iter().map(|m| m.cpu).sum();
+                let total_mem: u64 = latest.pod_metrics.iter().map(|m| m.memory).sum();
+                let mem_mb = total_mem / 1024 / 1024;
+                footer_text = format!("{} | CPU: {}m | MEM: {}Mi", footer_text, total_cpu, mem_mb);
+            }
+
+            let footer = Paragraph::new(footer_text).block(Block::default().borders(Borders::ALL));
             f.render_widget(footer, main_chunks[2]);
         })?;
 
@@ -323,6 +433,7 @@ fn main() -> Result<()> {
                 KeyCode::Char('q') => break,
                 KeyCode::Char('r') => app.update()?,
                 KeyCode::Char('l') => app.toggle_logs()?,
+                KeyCode::Char('m') => app.toggle_metrics()?,
                 KeyCode::Up => app.select_prev(),
                 KeyCode::Down => app.select_next(),
                 _ => {}

@@ -44,12 +44,14 @@ Real-time TUI dashboard for cluster monitoring.
 - Color-coded states
 - Interactive pod selection
 - Real-time log streaming
+- Resource metrics (CPU/memory)
 - Minimal resource usage
 
 **Controls:**
 - `q` - Quit
 - `r` - Refresh
 - `l` - Toggle logs panel
+- `m` - Toggle metrics
 - `↑↓` - Select pod
 
 **Example:**

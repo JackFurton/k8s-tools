@@ -9,6 +9,7 @@ Real-time TUI dashboard for Kubernetes clusters.
 - Color-coded pod states (Running/Pending/Failed)
 - Interactive pod selection (↑↓ arrow keys)
 - Real-time log streaming (press `l`)
+- Resource metrics (CPU/memory) (press `m`)
 - Shows namespace, restarts, and age
 - Minimal resource usage
 
@@ -29,6 +30,7 @@ kdash
 - `q` - Quit
 - `r` - Manual refresh
 - `l` - Toggle logs panel
+- `m` - Toggle metrics (CPU/memory)
 - `↑` - Select previous pod
 - `↓` - Select next pod
 
@@ -44,7 +46,8 @@ kdash
 │ [INFO] CoreDNS-1.13.1                                  │
 │ [INFO] linux/arm64, go1.25.2                           │
 ├─────────────────────────────────────────────────────────┤
-│ q:quit | r:refresh | l:logs | ↑↓:select | Update: 2s  │
+│ q:quit | r:refresh | l:logs | m:metrics | ↑↓:select   │
+│ CPU: 15m | MEM: 256Mi                                   │
 └─────────────────────────────────────────────────────────┘
 ```
 
