@@ -1,6 +1,7 @@
 // Command implementations
 pub mod list;
 pub mod logs;
+pub mod multilogs;
 pub mod exec;
 pub mod describe;
 pub mod top;
@@ -16,6 +17,7 @@ pub mod plugin;
 // Re-export all command functions
 pub use list::list_pods;
 pub use logs::show_logs;
+pub use multilogs::multi_logs;
 pub use exec::exec_pod;
 pub use describe::describe_pod;
 pub use top::show_top;
