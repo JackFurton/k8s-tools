@@ -1,9 +1,14 @@
+use crate::kubectl::find_pod;
 use anyhow::Result;
 use colored::*;
 use std::process::Command;
-use crate::kubectl::find_pod;
 
-pub fn show_logs(pod_pattern: &str, namespace: Option<String>, follow: bool, tail: u32) -> Result<()> {
+pub fn show_logs(
+    pod_pattern: &str,
+    namespace: Option<String>,
+    follow: bool,
+    tail: u32,
+) -> Result<()> {
     let (pod_name, ns) = find_pod(pod_pattern, namespace)?;
 
     println!(

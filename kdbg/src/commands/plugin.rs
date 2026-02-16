@@ -1,8 +1,8 @@
+use crate::utils::get_plugin_dir;
 use anyhow::Result;
 use colored::*;
 use std::fs;
 use std::process::Command;
-use crate::utils::get_plugin_dir;
 
 pub fn run_plugin(name: &str, args: &[String]) -> Result<()> {
     let plugin_dir = get_plugin_dir();

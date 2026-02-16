@@ -85,9 +85,7 @@ pub fn kubectl_exec(args: &[&str]) -> Result<std::process::Output> {
 
 /// Execute kubectl command interactively (inherits stdio)
 pub fn kubectl_interactive(args: &[&str]) -> Result<()> {
-    let status = Command::new("kubectl")
-        .args(args)
-        .status()?;
+    let status = Command::new("kubectl").args(args).status()?;
 
     if !status.success() {
         anyhow::bail!("kubectl command failed");

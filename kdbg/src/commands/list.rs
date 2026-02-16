@@ -1,11 +1,11 @@
-use anyhow::Result;
-use colored::*;
 use crate::kubectl::get_pods_json;
 use crate::utils::calculate_age;
+use anyhow::Result;
+use colored::*;
 
 pub fn list_pods(namespace: Option<String>, verbose: bool) -> Result<()> {
     let json = get_pods_json(namespace)?;
-    
+
     let empty_vec = vec![];
     let pods = json["items"].as_array().unwrap_or(&empty_vec);
 

@@ -1,3 +1,4 @@
+use crate::utils::calculate_age;
 use anyhow::Result;
 use colored::*;
 use serde_json::Value;
@@ -5,7 +6,6 @@ use std::io::{self, Write};
 use std::process::Command;
 use std::thread;
 use std::time::Duration;
-use crate::utils::calculate_age;
 
 pub fn watch_pods(namespace: Option<String>, interval: u64) -> Result<()> {
     println!(

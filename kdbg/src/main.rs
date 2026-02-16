@@ -113,9 +113,7 @@ enum Commands {
     },
 
     /// Switch kubectl context
-    Ctx {
-        context: Option<String>,
-    },
+    Ctx { context: Option<String> },
 
     /// Run a plugin command
     Plugin {
@@ -130,17 +128,39 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::List { namespace, verbose } => list_pods(namespace, verbose)?,
-        Commands::Logs { pod, namespace, follow, tail } => show_logs(&pod, namespace, follow, tail)?,
-        Commands::MultiLogs { pod, namespace, follow, tail } => multi_logs(&pod, namespace, follow, tail)?,
-        Commands::Exec { pod, namespace, command } => exec_pod(&pod, namespace, &command)?,
+        Commands::Logs {
+            pod,
+            namespace,
+            follow,
+            tail,
+        } => show_logs(&pod, namespace, follow, tail)?,
+        Commands::MultiLogs {
+            pod,
+            namespace,
+            follow,
+            tail,
+        } => multi_logs(&pod, namespace, follow, tail)?,
+        Commands::Exec {
+            pod,
+            namespace,
+            command,
+        } => exec_pod(&pod, namespace, &command)?,
         Commands::Describe { pod, namespace } => describe_pod(&pod, namespace)?,
         Commands::Top { namespace } => show_top(namespace)?,
-        Commands::Forward { pod, local_port, pod_port, namespace } => port_forward(&pod, local_port, pod_port, namespace)?,
+        Commands::Forward {
+            pod,
+            local_port,
+            pod_port,
+            namespace,
+        } => port_forward(&pod, local_port, pod_port, namespace)?,
         Commands::Shell { pod, namespace } => shell_pod(&pod, namespace)?,
         Commands::Debug { image, namespace } => debug_pod(&image, &namespace)?,
         Commands::Restart { pod, namespace } => restart_pod(&pod, namespace)?,
         Commands::Events { pod, namespace } => show_events(&pod, namespace)?,
-        Commands::Watch { namespace, interval } => watch_pods(namespace, interval)?,
+        Commands::Watch {
+            namespace,
+            interval,
+        } => watch_pods(namespace, interval)?,
         Commands::Ctx { context } => switch_context(context)?,
         Commands::Plugin { name, args } => run_plugin(&name, &args)?,
     }

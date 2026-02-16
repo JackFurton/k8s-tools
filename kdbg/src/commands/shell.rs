@@ -1,7 +1,7 @@
+use crate::kubectl::find_pod;
 use anyhow::Result;
 use colored::*;
 use std::process::{Command, Stdio};
-use crate::kubectl::find_pod;
 
 pub fn shell_pod(pod_pattern: &str, namespace: Option<String>) -> Result<()> {
     let (pod_name, ns) = find_pod(pod_pattern, namespace)?;

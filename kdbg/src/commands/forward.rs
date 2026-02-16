@@ -1,7 +1,7 @@
+use crate::kubectl::find_pod;
 use anyhow::Result;
 use colored::*;
 use std::process::Command;
-use crate::kubectl::find_pod;
 
 pub fn port_forward(
     pod_pattern: &str,

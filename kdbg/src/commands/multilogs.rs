@@ -1,12 +1,17 @@
+use crate::kubectl::get_pods_json;
 use anyhow::Result;
 use colored::*;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::thread;
-use crate::kubectl::get_pods_json;
 
-pub fn multi_logs(pod_pattern: &str, namespace: Option<String>, follow: bool, tail: u32) -> Result<()> {
+pub fn multi_logs(
+    pod_pattern: &str,
+    namespace: Option<String>,
+    follow: bool,
+    tail: u32,
+) -> Result<()> {
     // Find all matching pods
     let json = get_pods_json(namespace.clone())?;
     let empty_vec = vec![];
@@ -25,7 +30,7 @@ pub fn multi_logs(pod_pattern: &str, namespace: Option<String>, follow: bool, ta
     }
 
     println!("{} Found {} matching pods:", "[INFO]".cyan(), matches.len());
-    
+
     let colors = [
         Color::Green,
         Color::Yellow,
@@ -41,10 +46,16 @@ pub fn multi_logs(pod_pattern: &str, namespace: Option<String>, follow: bool, ta
 
     let mut pod_list = Vec::new();
     for (i, pod) in matches.iter().enumerate() {
-        let name = pod["metadata"]["name"].as_str().unwrap_or("unknown").to_string();
-        let ns = pod["metadata"]["namespace"].as_str().unwrap_or("default").to_string();
+        let name = pod["metadata"]["name"]
+            .as_str()
+            .unwrap_or("unknown")
+            .to_string();
+        let ns = pod["metadata"]["namespace"]
+            .as_str()
+            .unwrap_or("default")
+            .to_string();
         let color = colors[i % colors.len()];
-        
+
         println!("  {} {}", "●".color(color), name.color(color));
         pod_list.push((name, ns, color));
     }
